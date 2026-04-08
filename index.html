@@ -7,8 +7,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="data.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+
 <style>
-/* ... (Keep your existing CSS styles here) ... */
+/* Dashboard Styles - DO NOT CHANGE */
 :root {
   --bg:#0d1117; --surface:#161b22; --surface2:#21262d; --border:#30363d;
   --text:#e6edf3; --muted:#8b949e;
@@ -18,45 +19,151 @@
   --green:#3fb950; --green-bg:rgba(63,185,80,0.12); --green-border:rgba(63,185,80,0.3);
   --accent:#58a6ff;
 }
-/* ... Rest of your CSS ... */
+body { background: var(--bg); color: var(--text); font-family: 'IBM Plex Sans', sans-serif; margin: 0; padding: 20px; line-height: 1.5; }
+.container { max-width: 1400px; margin: 0 auto; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 24px; }
+.tabs { display: flex; gap: 8px; margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 1px; }
+.tab { padding: 10px 20px; color: var(--muted); cursor: pointer; border-radius: 6px 6px 0 0; border: 1px solid transparent; margin-bottom: -1px; font-weight: 600; }
+.tab.active { color: var(--accent); background: var(--surface); border: 1px solid var(--border); border-bottom-color: var(--surface); }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+th { text-align: left; color: var(--muted); font-size: 12px; font-weight: 600; padding: 12px; border-bottom: 1px solid var(--border); }
+td { padding: 12px; border-bottom: 1px solid var(--border); font-size: 14px; }
+.badge { padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+.Green { color: var(--green); background: var(--green-bg); border: 1px solid var(--green-border); }
+.Yellow { color: var(--yellow); background: var(--yellow-bg); border: 1px solid var(--yellow-border); }
+.Orange { color: var(--orange); background: var(--orange-bg); border: 1px solid var(--orange-border); }
+.Red { color: var(--red); background: var(--red-bg); border: 1px solid var(--red-border); }
 </style>
 </head>
 <body>
 
+<div class="container">
+    <div class="card" style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+            <h1 style="margin:0; font-size:24px;">Node Health Dashboard</h1>
+            <p style="margin:4px 0 0; color:var(--muted)">Network Intelligence Operations</p>
+        </div>
+        <div id="latest-date" style="font-family:'IBM Plex Mono'; color:var(--accent); font-weight:600;"></div>
+    </div>
+
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab('s1')">Summary</div>
+        <div class="tab" onclick="switchTab('s2')">Red Bucket</div>
+        <div class="tab" onclick="switchTab('s3')">Chronic Analysis</div>
+    </div>
+
+    <div id="s1" class="tab-content active">
+        <div class="card">
+            <h2>NID Quality Trend</h2>
+            <canvas id="nidChart" height="100"></canvas>
+        </div>
+    </div>
+
+    <div id="s2" class="tab-content">
+        <div class="card">
+            <h2>Red Bucket Priority List</h2>
+            <table>
+                <thead>
+                    <tr><th>Node</th><th>NID Score</th><th>QoE</th><th>Bucket</th></tr>
+                </thead>
+                <tbody id="red-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="s3" class="tab-content">
+        <div class="card">
+            <h2>Chronic Node Issues</h2>
+            <table id="chronicTable">
+                <thead>
+                    <tr><th>Node ID</th><th>NID Score</th><th>QoE</th><th>Status</th></tr>
+                </thead>
+                <tbody id="chronic-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
 <script>
-// Dashboard State & Logic Integration
-let ADV = {}; 
+// Logic to handle the external data
+let ADV = {};
 
 document.addEventListener('DOMContentLoaded', function() {
     if (typeof RAW === 'undefined') {
-        console.error("Data source 'RAW' not found. Ensure data.js is loaded.");
+        alert("Error: data.js was not found. Please ensure data.js is in your repository.");
         return;
     }
 
-    // Initialize the ADV object used by your original functions
+    // Initialize the ADV object from RAW data
+    const last = RAW.nid_summary[RAW.nid_summary.length - 1];
+    document.getElementById('latest-date').textContent = "LATEST: " + last.date;
+
     ADV = {
-        nid_summary: RAW.nid_summary,
-        qoe_summary: RAW.qoe_summary,
-        top_chronic: RAW.top_chronic,
-        // Add any additional processing logic your original index used here
+        history: RAW.nid_summary,
+        chronic: RAW.top_chronic,
+        red_nodes: RAW.top_chronic.filter(n => n.nid_bucket === 'red')
     };
 
-    // Initialize your original dashboard functions
-    initApp(); 
+    renderNIDChart();
+    fillTables();
 });
 
-function initApp() {
-    // These are the core functions found in your index.html.html
-    switchTab('s1');
-    renderS2();
-    renderS4NID();
-    renderS4QOE();
-    renderS5();
-    // ... any other init functions from your original file
+function switchTab(id) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+    document.getElementById(id).classList.add('active');
 }
 
-// ... (Paste all your original switchTab, render, and chart logic functions here) ...
-// Ensure functions like renderNIDPanel() reference ADV.nid_summary instead of local hardcoded data.
+function renderNIDChart() {
+    new Chart(document.getElementById('nidChart'), {
+        type: 'line',
+        data: {
+            labels: ADV.history.map(d => d.date),
+            datasets: [{
+                label: 'Green %',
+                data: ADV.history.map(d => d.green_pct),
+                borderColor: '#3fb950',
+                tension: 0.3,
+                fill: false
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: { grid: { color: '#30363d' }, ticks: { color: '#8b949e' } },
+                x: { grid: { display: false }, ticks: { color: '#8b949e' } }
+            }
+        }
+    });
+}
+
+function fillTables() {
+    const chronicBody = document.getElementById('chronic-tbody');
+    const redBody = document.getElementById('red-tbody');
+
+    ADV.chronic.forEach(n => {
+        const row = `<tr>
+            <td style="font-family:monospace">${n.node}</td>
+            <td>${n.nid.toFixed(1)}%</td>
+            <td>${n.qoe.toFixed(1)}</td>
+            <td><span class="badge ${n.nid_bucket.charAt(0).toUpperCase() + n.nid_bucket.slice(1)}">${n.nid_bucket}</span></td>
+        </tr>`;
+        chronicBody.innerHTML += row;
+    });
+
+    ADV.red_nodes.forEach(n => {
+        const row = `<tr>
+            <td style="font-family:monospace">${n.node}</td>
+            <td>${n.nid.toFixed(1)}%</td>
+            <td>${n.qoe.toFixed(1)}</td>
+            <td><span class="badge Red">RED</span></td>
+        </tr>`;
+        redBody.innerHTML += row;
+    });
+}
 </script>
 </body>
 </html>
