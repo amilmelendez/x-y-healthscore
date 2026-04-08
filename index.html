@@ -1,160 +1,62 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Node Health Dashboard</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-    <script src="data.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
-    
-    <style>
-        :root {
-            --bg:#0d1117; --surface:#161b22; --surface2:#21262d; --border:#30363d;
-            --text:#e6edf3; --muted:#8b949e;
-            --red:#ff4444; --orange:#ff8c00; --yellow:#ffd700; --green:#238636;
-            --blue:#58a6ff;
-        }
-        body { 
-            background: var(--bg); color: var(--text); 
-            font-family: 'IBM Plex Sans', sans-serif; margin: 0; padding: 20px; 
-        }
-        .container { max-width: 1400px; margin: 0 auto; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        .card { 
-            background: var(--surface); border: 1px solid var(--border); 
-            border-radius: 12px; padding: 24px; margin-bottom: 20px; 
-        }
-        .header-flex { display: flex; justify-content: space-between; align-items: center; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.9rem; }
-        th { text-align: left; color: var(--muted); font-weight: 400; border-bottom: 1px solid var(--border); padding: 12px; }
-        td { padding: 12px; border-bottom: 1px solid var(--border); }
-        .badge { padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
-        .green { color: #3fb950; background: rgba(63,185,80,0.1); border: 1px solid rgba(63,185,80,0.2); }
-        .yellow { color: #d29922; background: rgba(210,153,34,0.1); border: 1px solid rgba(210,153,34,0.2); }
-        .orange { color: #db6d28; background: rgba(219,109,40,0.1); border: 1px solid rgba(219,109,40,0.2); }
-        .red { color: #f85149; background: rgba(248,81,73,0.1); border: 1px solid rgba(248,81,73,0.2); }
-        .stat-val { font-size: 2rem; font-weight: 700; font-family: 'IBM Plex Mono'; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Node Health Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="data.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+/* ... (Keep your existing CSS styles here) ... */
+:root {
+  --bg:#0d1117; --surface:#161b22; --surface2:#21262d; --border:#30363d;
+  --text:#e6edf3; --muted:#8b949e;
+  --red:#ff4444; --red-bg:rgba(255,68,68,0.12); --red-border:rgba(255,68,68,0.3);
+  --orange:#ff8c00; --orange-bg:rgba(255,140,0,0.12); --orange-border:rgba(255,140,0,0.3);
+  --yellow:#ffd700; --yellow-bg:rgba(255,215,0,0.12); --yellow-border:rgba(255,215,0,0.3);
+  --green:#3fb950; --green-bg:rgba(63,185,80,0.12); --green-border:rgba(63,185,80,0.3);
+  --accent:#58a6ff;
+}
+/* ... Rest of your CSS ... */
+</style>
 </head>
 <body>
 
-<div class="container">
-    <div class="card header-flex">
-        <div>
-            <h1 style="margin:0; font-size:1.5rem;">Network Health Operations</h1>
-            <p style="margin:5px 0 0; color:var(--muted)">Proactive Maintenance & Node Performance</p>
-        </div>
-        <div style="text-align:right">
-            <div id="last-update" style="font-family:monospace; color:var(--blue)"></div>
-        </div>
-    </div>
-
-    <div class="grid">
-        <div class="card">
-            <h2>NID Quality Trend</h2>
-            <canvas id="mainChart"></canvas>
-        </div>
-        <div class="card">
-            <h2>Current Status Distribution</h2>
-            <canvas id="distChart"></canvas>
-        </div>
-    </div>
-
-    <div class="card">
-        <h2>Chronic Performance Issues</h2>
-        <table id="chronicTable">
-            <thead>
-                <tr>
-                    <th>Node ID</th>
-                    <th>NID Score</th>
-                    <th>QoE</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody id="chronicTbody"></tbody>
-        </table>
-    </div>
-</div>
-
 <script>
+// Dashboard State & Logic Integration
+let ADV = {}; 
+
 document.addEventListener('DOMContentLoaded', function() {
     if (typeof RAW === 'undefined') {
-        document.body.innerHTML = "<div style='padding:50px; text-align:center;'><h1>Data Load Error</h1><p>Check if data.js is in your GitHub folder.</p></div>";
+        console.error("Data source 'RAW' not found. Ensure data.js is loaded.");
         return;
     }
 
-    // Process ADV metrics from RAW
-    const lastEntry = RAW.nid_summary[RAW.nid_summary.length - 1];
-    document.getElementById('last-update').textContent = "LATEST: " + lastEntry.date;
-
-    const ADV = {
-        history: RAW.nid_summary,
-        chronic: RAW.top_chronic,
-        distribution: [lastEntry.green, lastEntry.yellow, lastEntry.orange, lastEntry.red]
+    // Initialize the ADV object used by your original functions
+    ADV = {
+        nid_summary: RAW.nid_summary,
+        qoe_summary: RAW.qoe_summary,
+        top_chronic: RAW.top_chronic,
+        // Add any additional processing logic your original index used here
     };
 
-    renderCharts(ADV);
-    fillTable(ADV.chronic);
+    // Initialize your original dashboard functions
+    initApp(); 
 });
 
-function renderCharts(ADV) {
-    // Line Chart
-    new Chart(document.getElementById('mainChart'), {
-        type: 'line',
-        data: {
-            labels: ADV.history.map(d => d.date),
-            datasets: [{
-                label: 'Green Pct (%)',
-                data: ADV.history.map(d => d.green_pct),
-                borderColor: '#238636',
-                backgroundColor: 'rgba(35,134,54,0.1)',
-                fill: true,
-                tension: 0.4
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: { legend: { display: false } },
-            scales: {
-                y: { grid: { color: '#30363d' }, ticks: { color: '#8b949e' } },
-                x: { grid: { display: false }, ticks: { color: '#8b949e' } }
-            }
-        }
-    });
-
-    // Pie Chart
-    new Chart(document.getElementById('distChart'), {
-        type: 'doughnut',
-        data: {
-            labels: ['Green', 'Yellow', 'Orange', 'Red'],
-            datasets: [{
-                data: ADV.distribution,
-                backgroundColor: ['#238636', '#ffd700', '#ff8c00', '#ff4444'],
-                borderWidth: 0
-            }]
-        },
-        options: {
-            cutout: '70%',
-            plugins: { legend: { position: 'right', labels: { color: '#e6edf3' } } }
-        }
-    });
+function initApp() {
+    // These are the core functions found in your index.html.html
+    switchTab('s1');
+    renderS2();
+    renderS4NID();
+    renderS4QOE();
+    renderS5();
+    // ... any other init functions from your original file
 }
 
-function fillTable(nodes) {
-    const tbody = document.getElementById('chronicTbody');
-    nodes.forEach(n => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td style="font-family:'IBM Plex Mono'; font-weight:600;">${n.node}</td>
-            <td>${n.nid.toFixed(1)}%</td>
-            <td>${n.qoe.toFixed(1)}</td>
-            <td><span class="badge ${n.nid_bucket}">${n.nid_bucket}</span></td>
-        `;
-        tbody.appendChild(tr);
-    });
-}
+// ... (Paste all your original switchTab, render, and chart logic functions here) ...
+// Ensure functions like renderNIDPanel() reference ADV.nid_summary instead of local hardcoded data.
 </script>
-
 </body>
 </html>
